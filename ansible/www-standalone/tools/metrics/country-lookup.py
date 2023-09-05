@@ -5,7 +5,8 @@ import csv
 import geoip2.database
 import os
 
-reader = geoip2.database.Reader(os.path.dirname(os.path.realpath(__file__)) + '/GeoLite2-City.mmdb')
+reader = geoip2.database.Reader(
+    f'{os.path.dirname(os.path.realpath(__file__))}/GeoLite2-City.mmdb')
 
 logFileWriter = csv.writer(sys.stdout, quoting=csv.QUOTE_MINIMAL)
 logFileReader = csv.reader(sys.stdin)
@@ -22,8 +23,7 @@ for row in logFileReader:
   region = ""
 
   try:
-    georec = reader.city(row.pop(0))
-    if georec:
+    if georec := reader.city(row.pop(0)):
       if georec.country.iso_code:
         country = georec.country.iso_code
       if georec.subdivisions.most_specific.iso_code:

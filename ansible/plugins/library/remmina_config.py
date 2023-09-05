@@ -134,7 +134,7 @@ def main():
 
         password = remmina_encrypt(remmina_secret, metadata['ansible_password'])
         rendered = render_template(hostname, metadata, password)
-        filename = os.path.join(target_dir, '%s.remmina' % hostname)
+        filename = os.path.join(target_dir, f'{hostname}.remmina')
 
         try:
             with open(filename, 'w+') as f:
@@ -145,7 +145,7 @@ def main():
 
         os.chmod(filename, 0o600)
 
-    module.exit_json(changed=True, meta=('Updated %s successfully' % target_dir))
+    module.exit_json(changed=True, meta=f'Updated {target_dir} successfully')
 
 
 if __name__ == '__main__':

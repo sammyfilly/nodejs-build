@@ -103,10 +103,8 @@ def main():
     if not is_templatable(path, contents):
         module.fail_json(msg='Your ssh config lacks template stubs. Check README.md for instructions.')
 
-    rendered = '{}{}{}'.format(
-        pre_match,
-        render_template(module.params['hostinfo']),
-        post_match
+    rendered = (
+        f"{pre_match}{render_template(module.params['hostinfo'])}{post_match}"
     )
 
     try:
@@ -116,7 +114,7 @@ def main():
     except IOError:
         module.fail_json(msg='Couldn\'t write to ssh config. Check permissions')
 
-    module.exit_json(changed=True, meta='Updated %s successfully' % path)
+    module.exit_json(changed=True, meta=f'Updated {path} successfully')
 
 
 if __name__ == '__main__':
