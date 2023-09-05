@@ -104,10 +104,8 @@ def merge(a, b, path=None):
                 merge(a[key], b[key], path + [str(key)])
             elif isinstance(a[key], list) and isinstance(b[key], list):
                 a[key] = sorted(set(a[key]).union(b[key]))
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            else:
-                raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
+            elif a[key] != b[key]:
+                raise Exception(f"Conflict at {'.'.join(path + [str(key)])}")
         else:
             a[key] = b[key]
     return a
@@ -127,7 +125,10 @@ def check_decrypt_tool():
     except OSError as e:
         print(e, file=sys.stderr)
 
-    print("WARNING: cannot find or use %s executable" % DECRYPT_TOOL, file=sys.stderr)
+    print(
+        f"WARNING: cannot find or use {DECRYPT_TOOL} executable",
+        file=sys.stderr,
+    )
     return False
 
 
@@ -139,10 +140,9 @@ def get_secrets_path():
         path = os.path.realpath(path)
         if os.path.isdir(path):
             return path
-        else:
-            print("WARNING: NODE_BUILD_SECRETS defined but not a directory", file=sys.stderr)
-            print("It must be the path to a local checkout of https://github.com/nodejs-private/secrets", file=sys.stderr)
-            return None
+        print("WARNING: NODE_BUILD_SECRETS defined but not a directory", file=sys.stderr)
+        print("It must be the path to a local checkout of https://github.com/nodejs-private/secrets", file=sys.stderr)
+        return None
 
     path = os.path.realpath('../secrets/build/')
     if os.path.isdir(path):
@@ -197,7 +197,7 @@ def load_yaml_secrets(file_name):
     p = subprocess.Popen([DECRYPT_TOOL, "-q", "--decrypt", file_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, _) = p.communicate()
     if p.returncode != 0:
-        print("WARNING: cannot load %s" % file_name, file=sys.stderr)
+        print(f"WARNING: cannot load {file_name}", file=sys.stderr)
         return None
 
     return yaml.safe_load(stdout)
@@ -210,10 +210,8 @@ def parse_yaml(hosts, config):
 
     for host_types in hosts['hosts']:
         for host_type, providers in host_types.items():
-            export[host_type] = {}
-            export[host_type]['hosts'] = []
-
-            key = '~/.ssh/nodejs_build_%s' % host_type
+            export[host_type] = {'hosts': []}
+            key = f'~/.ssh/nodejs_build_{host_type}'
             export[host_type]['vars'] = {
                 'ansible_ssh_private_key_file': key
             }
@@ -225,8 +223,7 @@ def parse_yaml(hosts, config):
                         # some hosts have metadata appended to provider
                         # which requires underscore
                         delimiter = "_" if host.count('-') == 3 else "-"
-                        hostname = '{}-{}{}{}'.format(host_type, provider_name,
-                                                      delimiter, host)
+                        hostname = f'{host_type}-{provider_name}{delimiter}{host}'
 
                         export[host_type]['hosts'].append(hostname)
 
@@ -235,28 +232,28 @@ def parse_yaml(hosts, config):
                         try:
                             parsed_host = parse_host(hostname)
                             for k, v in parsed_host.items():
-                                hostvars.update({k: v[0] if type(v) is dict else v})
+                                hostvars[k] = v[0] if type(v) is dict else v
                         except Exception as e:
-                            raise Exception('Failed to parse host: %s' % e)
+                            raise Exception(f'Failed to parse host: {e}')
 
                         if 'ip' in metadata:
-                            hostvars.update({'ansible_host': metadata['ip']})
+                            hostvars['ansible_host'] = metadata['ip']
                             del metadata['ip']
 
                         if 'port' in metadata:
-                            hostvars.update({'ansible_port': str(metadata['port'])})
+                            hostvars['ansible_port'] = str(metadata['port'])
                             del metadata['port']
 
                         if 'user' in metadata:
-                            hostvars.update({'ansible_user': metadata['user']})
-                            hostvars.update({'ansible_become': True})
+                            hostvars['ansible_user'] = metadata['user']
+                            hostvars['ansible_become'] = True
                             del metadata['user']
 
                         if 'password' in metadata:
-                            hostvars.update({'ansible_password': str(metadata['password'])})
+                            hostvars['ansible_password'] = str(metadata['password'])
                             del metadata['password']
 
-                        hostvars.update(metadata)
+                        hostvars |= metadata
 
                         # add specific options from config
                         for option in filter(lambda s: s.startswith('hosts:'),
@@ -265,7 +262,7 @@ def parse_yaml(hosts, config):
                             if option[6:] in hostname:
                                 for o in config.items(option):
                                     # configparser returns tuples of key, value
-                                    hostvars.update({o[0]: o[1]})
+                                    hostvars[o[0]] = o[1]
 
                         export['_meta']['hostvars'][hostname] = {}
                         export['_meta']['hostvars'][hostname].update(hostvars)
@@ -278,20 +275,17 @@ def parse_yaml(hosts, config):
 def parse_host(host):
     """Parses a host and validates it against our naming conventions"""
 
-    hostinfo = dict()
     info = host.split('-')
 
     expected = ['type', 'provider', 'os', 'arch', 'uid']
 
     if len(info) != 5:
-        raise Exception('Host format is invalid: %s,' % host)
+        raise Exception(f'Host format is invalid: {host},')
 
-    for key, item in enumerate(expected):
-        hostinfo[item] = has_metadata(info[key])
-
+    hostinfo = {item: has_metadata(info[key]) for key, item in enumerate(expected)}
     for item in ['type', 'provider', 'arch']:
         if hostinfo[item] not in valid[item]:
-            raise Exception('Invalid %s: %s' % (item, hostinfo[item]))
+            raise Exception(f'Invalid {item}: {hostinfo[item]}')
 
     return hostinfo
 
